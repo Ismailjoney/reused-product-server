@@ -18,6 +18,28 @@ console.log(uri)
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
 
+ function jwtVerify(req, res, next){
+    console.log(req.headers.authorization);
+    const authHeader = req.headers.authorization;
+    //console.log(authHeader)
+
+    if(!authHeader){
+        return res.status(401).send('unAuthorazid access')
+    }
+    //split kore token k alada kora hoyece
+    const token = authHeader.split(' ')[1]
+    //console.log(token);
+
+    jwt.verify(token, process.env.ACCESS_TOKEN, function(err, decoded){
+        if(err){
+            return res.status(403).send({message : 'forbiden access'})
+        }
+        req.decoded = decoded;
+        next()
+    })
+    
+    
+ }
 
 
 async function run() {
@@ -25,6 +47,8 @@ async function run() {
         const categoryCollection = client.db('resaleproducts').collection('categories')
         const categoryItemsCollection = client.db('resaleproducts').collection('categoriesItems')
         const  usersCollection = client.db('resaleproducts').collection('users')
+        const  bookingCollection = client.db('resaleproducts').collection('booking')
+        const usersPostCollections = client.db('resaleproducts').collection('userpost')
 
 
 
@@ -37,8 +61,7 @@ async function run() {
 
         app.get('/categoriesItems/:id', async (req, res) => {
             const id = req.params.id;
-            const query = { cid:   id }
-            console.log(query)
+            const query = { cid: id }
             const categorieitems = await categoryItemsCollection.find(query).toArray();
             res.send(categorieitems)
         })
@@ -60,9 +83,67 @@ async function run() {
         //users information save in data base
         app.post('/users', async( req, res ) =>{
             const users = req.body;
+            console.log(users)
             const resualt = await usersCollection.insertOne(users)
             res.send(resualt)
         })
+        //get user by email
+        app.get('/users', async(req,res) => {
+            const email = req.query.email;
+            const query = {email : email}
+            const  resualt =await usersCollection.findOne(query)
+            res.send(resualt)
+        })
+
+        //when user booking product :
+        app.post('/productbooking', async(req,res) => {
+            const book = req.body;
+            const booking = await bookingCollection.insertOne(book)
+            console.log(booking)
+            res.send(booking)
+        })
+
+        //my booking
+        app.get('/mybookings', async( req, res) => {
+            const email =req.query.email;
+            const query ={email : email}
+            const order = await bookingCollection.find(query).toArray();
+            console.log(order);
+            res.send(order)
+        })
+        //deletebooking
+         app.delete('/bookings/:id',  async(req, res) => {
+            const id = req.params.id;
+            console.log(id)
+            const filter = {_id : new  ObjectId(id)}
+            const resualt = await  bookingCollection.deleteOne(filter);
+            res.send(resualt)
+        })
+
+        //users posts--> 
+        app.post('/sellerproduct', async(req,res) => {
+            const product = req.body;
+            const resualt = await usersPostCollections.insertOne(product);
+            res.send(resualt)
+        })
+
+        app.get('/sellerproduct', async(req, res) => {
+            const email = req.query.email;
+            const query ={email : email}
+            const resuat = await usersPostCollections.find(query).toArray();
+            res.send(resuat)
+        })
+
+        app.delete('/sellerproduct/:id',  async(req, res) => {
+            const id = req.params.id;
+            console.log(id)
+            const filter = {_id : new  ObjectId(id)}
+            const resualt = await  usersPostCollections.deleteOne(filter);
+            res.send(resualt)
+        })
+
+
+
 
 
 
