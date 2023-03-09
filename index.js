@@ -17,29 +17,27 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@clu
 console.log(uri)
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
-
- function jwtVerify(req, res, next){
-    //console.log(`token`, req.headers.authorization);
+ 
+function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
-    //console.log(authHeader)
+    console.log(authHeader)
 
-    if(!authHeader){
-        return res.status(401).send('unAuthorazid access')
+    if (!authHeader) {
+        return res.status(401).send('unauthorized access');
     }
-    //split kore token k alada kora hoyece
-    const token = authHeader.split(' ')[1]
-    //console.log(token);
 
-    jwt.verify(token, process.env.ACCESS_TOKEN, function(err, decoded){
-        if(err){
-            return res.status(403).send({message : 'forbiden access'})
+    const token = authHeader.split(' ')[1];
+
+    jwt.verify(token, process.env.ACESS_TOKEN, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'forbiddennn access' })
         }
         req.decoded = decoded;
-        next()
+        next();
     })
-    
-    
- }
+
+}
+
 
 
 async function run() {
@@ -49,6 +47,8 @@ async function run() {
         const  usersCollection = client.db('resaleproducts').collection('users')
         const  bookingCollection = client.db('resaleproducts').collection('booking')
         const usersPostCollections = client.db('resaleproducts').collection('userpost')
+
+
 
 
 
@@ -77,6 +77,17 @@ async function run() {
             res.send({  isSellerer : users?.role === 'seller'})
         })
 
+
+        //verifySeller
+        const verifySeller = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await usersCollection.findOne(query);
+            if (user?.role !== "Seller") {
+            return  res.status(403).send({ message: "Seller Forbiddn Access" });
+            }
+            next();
+          };
 
 
         app.get('/categories', async (req, res) => {
@@ -134,7 +145,7 @@ async function run() {
         })
 
         //delete buyer and seller Account 
-        app.delete('/allusers/:id', async(req,res) => {
+        app.delete('/allusers/:id',  async(req,res) => {
             const id = req.params.id;
             const filter = {_id : new  ObjectId(id)}
             const resualt = await  usersCollection.deleteOne(filter);
@@ -143,7 +154,7 @@ async function run() {
 
 
 
-        //when user booking product :
+        //when user booking product 
         app.post('/productbooking', async(req,res) => {
             const book = req.body;
             const booking = await bookingCollection.insertOne(book)
@@ -151,21 +162,20 @@ async function run() {
         })
 
         //my booking
-        app.get('/mybookings',  async( req, res) => {
-            const email =req.query.email;
+        app.get('/mybookings',  verifyJWT,  async( req, res) => {
+            const email = req.query.email;
             console.log(email)
 
-            // const decodedEmail = req.decoded.email;
-            // console.log(decodedEmail)
+            const decodedEmail = req.decoded.email;
+            console.log('decoded', decodedEmail)
 
-            // if (email !==  decodedEmail) {
-            //     return res.status(404).send({ message: 'forbidden accessss' });
-            // }
+            if (email !==  decodedEmail) {
+                return res.status(404).send({ message: 'forbidden accessss' });
+            }
 
 
             const query ={email : email}
             const order = await bookingCollection.find(query).toArray();
-            console.log(order);
             res.send(order)
         })
 
@@ -184,7 +194,7 @@ async function run() {
             res.send(resualt)
         })
 
-        app.get('/sellerproduct', async(req, res) => {
+        app.get('/sellerproduct',verifyJWT, async(req, res) => {
             const email = req.query.email;
             const query ={email : email}
             const resuat = await categoryItemsCollection.find(query).toArray();
